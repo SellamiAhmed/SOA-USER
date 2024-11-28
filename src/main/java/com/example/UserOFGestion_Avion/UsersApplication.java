@@ -6,11 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import com.example.UserOFGestion_Avion.entities.Role;
-import com.example.UserOFGestion_Avion.entities.User;
 import com.example.UserOFGestion_Avion.service.UserService;
 
-import jakarta.annotation.PostConstruct;
 
 @SpringBootApplication
 public class UsersApplication {

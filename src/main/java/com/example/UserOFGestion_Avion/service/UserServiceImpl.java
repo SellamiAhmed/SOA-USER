@@ -10,11 +10,17 @@ import com.example.UserOFGestion_Avion.repos.RoleRepository;
 import com.example.UserOFGestion_Avion.repos.UserRepository;
 import com.example.UserOFGestion_Avion.service.register.RegistrationRequest;
 import com.example.UserOFGestion_Avion.service.register.VerificationToken;
+import com.example.UserOFGestion_Avion.service.register.VerificationTokenRepository;
 import com.example.UserOFGestion_Avion.service.register.exception.EmailAlreadyExistsException;
+import com.example.UserOFGestion_Avion.service.register.exception.ExpiredTokenException;
+import com.example.UserOFGestion_Avion.service.register.exception.InvalidTokenException;
+import com.example.UserOFGestion_Avion.util.EmailSender;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 @Transactional
 @Service
@@ -25,6 +31,12 @@ public class UserServiceImpl implements UserService{
     RoleRepository roleRep;
     @Autowired
     BCryptPasswordEncoder bCryptPasswordEncoder;
+    @Autowired
+    VerificationTokenRepository verificationTokenRepo;
+    @Autowired
+    EmailSender emailSender;
+
+
     @Override
     public User saveUser(User user) {
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
@@ -69,17 +81,59 @@ public class UserServiceImpl implements UserService{
 		
 		userRep.save(newUser);
 		
-		Role r = roleRep.findByRole("USER");
+		Role r = roleRep.findByRole("ADMIN");
 		List<Role> roles = new ArrayList<>();
 		roles.add(r);
 		newUser.setRoles(roles);
+		String code = this.generateCode();
+
+		VerificationToken token = new VerificationToken(code, newUser);
+		verificationTokenRepo.save(token);
 		
-
-
-		 
+		//envoyer le code par email a l'utilisateur
+		//sendEmailUser(newUser,token.getToken());
+   
+		sendEmailUser(newUser, code);
 
 
 		return userRep.save(newUser);
 	}
+
+    	public String generateCode() {
+		 Random random = new Random();
+		 Integer code = 100000 + random.nextInt(900000);
+
+		 return code.toString();
+	}
+	
+	
+
+	@Override
+	public void sendEmailUser(User u, String code) {
+	    String emailBody = "Bonjour " + u.getUsername() + ",<br><br>" +
+	        "Votre code de validation est : <h1>" + code + "</h1>";
+	    
+	    emailSender.sendEmail(u.getEmail(), emailBody);
+	}
+	
+	@Override
+	public User validateToken(String code) {
+		VerificationToken token = verificationTokenRepo.findByToken(code);
+		 if(token == null){
+			 throw new InvalidTokenException("Invalid Token");
+		 }
+	
+		  User user = token.getUser();
+		 Calendar calendar = Calendar.getInstance();
+		 if ((token.getExpirationTime().getTime() - calendar.getTime().getTime()) <= 0){
+			 verificationTokenRepo.delete(token);
+			 throw new ExpiredTokenException("expired Token");
+		 }
+		 user.setEnabled(true);
+		 userRep.save(user);
+		 return user;
+	}
+
+
 
 }
